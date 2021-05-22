@@ -9,7 +9,7 @@
 >![get_key](./pictures/get_key.jpg)
 ### step3 使用AWS CLI
 > * 用step2得到的KEYs注册AWS CLI
-> > 30022服务器，vim ~/.asw/credential, 复制KEYs
+> > 30022服务器，vim ~/.asw/credentials, 复制KEYs
 > >![config_CLI](./pictures/config_CLI.jpg)
 > > aws configure 设置服务区为 *us-east-1* 格式为 *json*  
 > >检验是否成功：aws s3 ls
