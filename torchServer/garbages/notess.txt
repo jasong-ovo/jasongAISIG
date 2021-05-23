@@ -1,0 +1,117 @@
+##CUDA 10.2  python 3.8
+
+## install correlated dependencies
+python ./ts_scripts/install_dependencies.py --cuda=cu102
+pip install sentencepiece
+conda install psutil pytorch torchvision torchtext -c pytorch
+(pip install torch==1.7.1)
+conda install cudatoolkit=10.2
+
+conda install torchserve torch-model-archiver -c pytorch
+
+
+### using
+cloned the repository into /home/my_path/serve, run the steps from /home/my_path
+
+mkdir model_store
+wget https://download.pytorch.org/models/densenet161-8d451a50.pth
+torch-model-archiver --model-name densenet161 --version 1.0 --model-file ./serve/examples/image_classifier/densenet_161/model.py --serialized-file densenet161-8d451a50.pth --export-path model_store --extra-files ./serve/examples/image_classifier/index_to_name.json --handler image_classifier
+
+
+torchserve --start --ncs --model-store model_store --models densenet161.mar
+##After you execute the torchserve command above, TorchServe runs on your host, listening for inference requests.
+
+
+##manage api
+用本地的.mar或者URI,HTTP协议下载
+max_batch_delay - the maximum delay for batch aggregation. The default value is 100 milliseconds
+initial_workers - the number of initial workers to create. The default value is 0. TorchServe will not run inference until there is at least one work assigned.
+synchronous - whether or not the creation of worker is synchronous. The default value is false. TorchServe will create new workers without waiting for acknowledgement that the previous worker is online.
+ asynchronous call will return immediately with HTTP code 202:
+ synchronous call returns with HTTP code 200 after all workers have been adjuste
+
+##what's batch delay
+https://www.vensim.com/documentation/mgu09_batch_delays.html
+
+## check health
+curl http://localhost:8080/ping
+curl 
+## process
+1.setup.py : 'torchserve=ts.model_server:start'
+2.ts.model_server:start : 
+
+##  Optimal set
+ValueToSet = (Number of Hardware GPUs) / (Number of Unique Models)
+
+## workflow
+This workflow uses two models, first to classify if an image is of a dog or a cat. If it is a dog the second model does breed classification. To change the default batch size and batch delay the yaml file for the workflow can to be changed. This cannot currently be set via the REST API.
+
+## custom model with custom handler
+https://github.com/pytorch/serve/tree/master/examples/image_classifier/mnist
+https://github.com/pytorch/serve/blob/master/docs/custom_service.md
+https://github.com/pytorch/serve/blob/master/docs/default_handlers.md
+https://github.com/pytorch/serve/tree/master/examples/image_classifier/densenet_161
+https://github.com/pytorch/serve/tree/master/examples/image_classifier/mnist
+https://github.com/akamaster/pytorch_resnet_cifar10/blob/master/resnet.py    //一个在cifar10专用的resnet网络， 我使用的继承
+https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py   //torchvision官方的
+In case of custom handler, 
+if you plan to provide just module_name or module_name:entry_point_function_name 
+then make sure that it is prefixed with absolute or relative path of python file.
+e.g. if your custom handler custom_image_classifier.py is in /home/serve/examples 
+then --handler /home/serve/examples/custom_image_classifier 
+or if it has my_entry_point module level function then 
+--handler /home/serve/examples/custom_image_classifier:my_entry_point_func
+
+custom handler file must define a module level function 
+that acts as an entry point for execution.
+
+entry point is engaged in two cases:
+1.TorchServe gets a POST /predictions/{model_name} request.
+2.TorchServe is asked to scale a model out to increase the number of backend workers 
+(it is done either via a PUT /models/{model_name} request 
+or a POST /models request with initial-workers option 
+or during TorchServe startup 
+when you use the --models option(torchserve --start --models {model_name=model.mar}), 
+ie., you provide model(s) to load)
+
+You can create custom handler by having class with any name, 
+but it must have an initialize and a handle method.
+
+## model restriction
+Path to .pt or .pth file containing state_dict in
+                        case of eager mode or an executable ScriptModule
+                        in case of TorchScript.
+eager 模型的mar生成
+torch-model-archiver --model-name densenet_161 --version 1.0 --model-file model.py --serialized-file model.pt --handler image_classifier
+要指定model.py
+ --model-file MODEL_FILE
+                        Path to python file containing model architecture.
+                        This parameter is mandatory for eager mode models.
+                        The model architecture file must contain only one
+                        class definition extended from torch.nn.modules.
+ If you plan to have multiple classes in same python module/file then make sure that handler class is the first in the list
+
+## how to debug?
+python setup.py install is used to install (typically third party) packages that you're not going to develop/modify/debug yourself.
+python setup.py develop ##change 立刻生效
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##test
+torch-model-archiver --model-name densenet161_test --version 1.0 --model-file ./serve/examples/image_classifier/densenet_161/model.py --serialized-file densenet161-8d451a50.pth --export-path model_store --extra-files ./serve/examples/image_classifier/index_to_name.json --handler /home/gongjunchao/torchServer_task/myHandlers/eg_handler.py
+torchserve --start --ncs --model-store model_store --models densenet161_test.mar
+rm /home/gongjunchao/torchServer_task/model_store/*

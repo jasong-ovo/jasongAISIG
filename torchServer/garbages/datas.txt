@@ -1,0 +1,56 @@
+torchserve 是serverful的
+使用torchserve时，
+先将模型下载到本地，
+然后将模型转换成.mar的格式，
+最后将模型在torchserve进行注册。
+
+torchserve 依据 management api 为每个函数分配资源。
+
+
+1.下载模型并测试下载时间
+S3下载 4.163s 3.35M  resnet56-cifar10
+
+2. init model
+耗时和
+
+2. 使用带结构的resenet网络
+2.1Create a new model architecture file which contains model class extended from torch.nn.modules
+
+
+接口中只能测量传送数据的时间？以及预测的时间
+
+为什么有时是GPU有时是CPU？
+GPU不够时用CPU代替
+查看模型状态
+curl http://localhost:8081/models/noop
+设置worker的依据
+ValueToSet = (Number of Hardware GPUs) / (Number of Unique Models)
+设置工作的worker
+curl -v -X PUT "http://localhost:8081/models/densenet161_test?max_worker=1&min_worker=1&synchronous=true"
+curl -X DELETE http://localhost:8081/models/densenet161_test删除模型
+注册模型
+curl -X POST "localhost:8081/models?url=densenet161_test.mar&batch_size=16&max_batch_delay=5000&initial_workers=1"
+
+
+curl是同步的
+
+
+
+
+
+
+miniIO使用
+ssh -L [local_port]:127.0.0.1:[host_port] username@202.120.32.244 -p 30022
+k port-forward -n openwhisk `k get pods -A | grep minio | awk '{print $2}'` [host_port]:9000
+
+ expecting a 4-dimensional input?说明需要批输入
+要用dataloader加载，加载时可以指定batchsize
+或者用更底层的流程充当dataloader
+
+
+
+##test
+torch-model-archiver --model-name densenet161_test --version 1.0 --model-file ./serve/examples/image_classifier/densenet_161/model.py --serialized-file densenet161-8d451a50.pth --export-path model_store --extra-files ./serve/examples/image_classifier/index_to_name.json --handler /home/gongjunchao/torchServer_task/serve/ImaNet_densenet161_handler.py
+torchserve --start --ncs --model-store model_store --models densenet161_test.mar
+rm /home/gongjunchao/torchServer_task/model_store/*
+curl http://127.0.0.1:8080/predictions/densenet161_test -T kitten_small.jpg
